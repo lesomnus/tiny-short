@@ -24,6 +24,6 @@ func pCoin(coin bybit.Coin) *color.Color {
 	case bybit.CoinBtc:
 		fallthrough
 	default:
-		return c.Add(color.BgHiYellow)
+		return c.Add(color.FgHiYellow)
 	}
 }

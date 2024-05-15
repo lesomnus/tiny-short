@@ -14,7 +14,7 @@ import (
 	"github.com/lesomnus/tiny-short/log"
 )
 
-func Run(ctx context.Context, conf *Config) error {
+func Root(ctx context.Context, conf *Config) error {
 	l, err := conf.Log.NewLogger()
 	if err != nil {
 		return fmt.Errorf("create logger: %w", err)
