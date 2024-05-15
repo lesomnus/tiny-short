@@ -1,0 +1,38 @@
+secret:
+  # Type of secret of your API key
+  # One of: "HMAC" | "RSA"
+  type: RSA
+  api_key_file: ./secrets/api.key
+  private_key_file: ./secrets/key.pem
+
+  # Saves sub account's API keys.
+  store:
+    enabled: true
+    path: ./secrets/store.json
+
+coins:
+  - BTC
+  - SOL
+
+# Transfer all balances to `move.to` fro `move.from` before trading.
+# Trade is made as an account specified at `move.to`.
+# Use username to specify an account.
+# "$MAIN" is special word that indicates main account.
+move:
+  enabled: true
+  to: $MAIN # Username that act trading.
+  from:
+    - Bybitr0Ya1ewiThc
+    - BybitH3eselEbiGM
+
+log:
+  enabled: true
+  format: text
+  output:
+    # - $STDERR
+    - .tiny-short.log
+
+debug:
+  enabled: true
+  skip_transaction: true # No transfer and no trading.
+  skip_transfer: true # No transfer.

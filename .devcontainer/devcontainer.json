@@ -1,0 +1,15 @@
+{
+	"name": "lesomnus-tiny-short",
+	"build": {
+		"context": ".",
+		"dockerfile": "Dockerfile"
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"golang.go",
+				"streetsidesoftware.code-spell-checker"
+			]
+		}
+	}
+}
