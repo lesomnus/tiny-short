@@ -82,4 +82,4 @@ jobs:
           openssl enc -aes-256-cbc -salt -pbkdf2 \
             -in .tiny-short.secrets.json \
             -out .tiny-short.secrets.json.aes \
-            -k {{ secrets.STORE_PASSWORD }}
+            -k "${{ secrets.STORE_PASSWORD }}"
