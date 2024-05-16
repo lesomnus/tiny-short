@@ -2,7 +2,14 @@ name: Money Printer
 run-name: Make some coins 🪙
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      withLog:
+        description: "Enable logs"
+        type: boolean
+        required: false
+        default: false
+
   schedule:
     - cron: "5 */8 * * *"
 
@@ -55,6 +62,12 @@ jobs:
             from:
               - $MAIN
               - BybitydINQ0FotFH # hypnos
+
+          log:
+            enabled: ${{ inputs.withLog && 'true' || 'false' }}
+            format: text
+            output:
+              - $STDERR
 
           ' > .tiny-short.yaml
 
