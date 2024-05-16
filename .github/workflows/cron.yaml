@@ -1,0 +1,64 @@
+name: Money Printer
+run-name: Make some coins 🪙
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "5 */8 * * *"
+
+jobs:
+  Explore-GitHub-Actions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: .tiny-short.secrets.json.aes
+          key: Royale with Cheese
+
+      - name: Decrypt secrets
+        run: |
+          if [ -f .tiny-short.secrets.json.aes ]; then
+            openssl enc -d -aes-256-cbc -salt -pbkdf2 \
+              -in .tiny-short.secrets.json.aes \
+              -out .tiny-short.secrets.json \
+              -k {{ secrets.STORE_PASSWORD }} \
+            || true
+            
+            rm .tiny-short.secrets.json.aes
+          fi
+
+      - name: Config
+        run: |
+          echo '
+          secret:
+            type: RSA
+            api_key_file: api.key
+            private_key_file: key.pem
+
+            store:
+              enabled: true
+              path: .tiny-short.secrets.json
+
+          coins:
+            - SOL
+
+          move:
+            enabled: true
+            to: Bybitplg2HTZRgxP # somnus
+            from:
+              - $MAIN
+              - BybitydINQ0FotFH # hypnos
+
+          ' > .tiny-short.yaml
+
+      - name: Short
+        run: go run .
+
+      - name: Encrypt secrets
+        run: |
+          openssl enc -aes-256-cbc -salt -pbkdf2 \
+            -in .tiny-short.secrets.json \
+            -out .tiny-short.secrets.json.aes \
+            -k {{ secrets.STORE_PASSWORD }}
