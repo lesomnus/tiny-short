@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/fatih/color"
 	"github.com/lesomnus/tiny-short/cmd"
 	"github.com/lesomnus/tiny-short/cmd/key"
 	"github.com/urfave/cli/v2"
@@ -12,6 +13,7 @@ import (
 
 func main() {
 	var conf *cmd.Config
+	color.NoColor = false
 
 	app := &cli.App{
 		Name: "tiny-short",
