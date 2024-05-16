@@ -23,11 +23,16 @@ jobs:
             openssl enc -d -aes-256-cbc -salt -pbkdf2 \
               -in .tiny-short.secrets.json.aes \
               -out .tiny-short.secrets.json \
-              -k {{ secrets.STORE_PASSWORD }} \
+              -k "{{ secrets.STORE_PASSWORD }}" \
             || true
             
             rm .tiny-short.secrets.json.aes
           fi
+
+      - name: Set secrets
+        run: |
+          echo "{{ secrets.BYBIT_API_KEY        }}" > api.key
+          echo "{{ secrets.BYBIT_API_KEY_SECRET }}" > key.pem
 
       - name: Config
         run: |
