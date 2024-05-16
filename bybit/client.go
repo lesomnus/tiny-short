@@ -146,6 +146,7 @@ func (c *client) post(ctx context.Context, url string, req any, res any) error {
 }
 
 func (c *client) exec(ctx context.Context, method string, url string, data []byte, res any) error {
+	l := log.From(ctx)
 	req, err := c.makeReq(ctx, method, url, data)
 	if err != nil {
 		return fmt.Errorf("make req: %w", err)
@@ -161,10 +162,10 @@ func (c *client) exec(ctx context.Context, method string, url string, data []byt
 		return fmt.Errorf("read body: %w", err)
 	}
 	if err := json.Unmarshal(body, res); err != nil {
+		l.Error("unmarshal body", slog.String("body", string(body)))
 		return fmt.Errorf("unmarshal body: %w", err)
 	}
 
-	l := log.From(ctx)
 	l.Info("<-RES", slog.String("body", string(body)))
 	return nil
 }
