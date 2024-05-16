@@ -3,11 +3,14 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/lesomnus/tiny-short/bybit"
+	"github.com/lesomnus/tiny-short/log"
 )
 
 type Exec struct {
@@ -18,6 +21,7 @@ type Exec struct {
 }
 
 func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
+	l := log.From(ctx)
 	to := e.Move.to
 	pC := pCoin(coin)
 
@@ -25,6 +29,27 @@ func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
 	color.New(color.BgMagenta, color.FgHiWhite).Print(" SHORT ")
 	fmt.Print(" ")
 	pCoin(coin).Add(color.Underline).Printf("%s", coin)
+
+	if res, err := e.Client.Market().FundingHistory(ctx, bybit.MarketFundingHistoryReq{
+		Category:  bybit.ProductTypeInverse,
+		Symbol:    coin.InvPerceptual(),
+		StartTime: bybit.Timestamp(time.Now().Add(-8 * time.Hour)),
+		EndTime:   bybit.Timestamp(time.Now()),
+		Limit:     1,
+	}); err != nil {
+		l.Warn("request for funding history", slog.String("err", err.Error()))
+	} else if !res.Ok() {
+		l.Warn("funding history", slog.String("err", res.Err().Error()))
+	} else if len(res.Result.List) == 0 {
+		l.Warn("funding history empty")
+	} else {
+		history := res.Result.List[0]
+		fmt.Print("⚡")
+		color.New(color.FgHiYellow).Printf("%s%% ", (history.FundingRate * 100).String())
+		fmt.Print(time.Since(history.FundingRateTimestamp.Time()).Truncate(time.Second))
+		p_dimmed.Print(" ago ")
+		fmt.Print("|")
+	}
 
 	var bid bybit.Amount
 	if res, err := e.Client.Market().Tickers(ctx, bybit.MarketTickersReq{
@@ -40,11 +65,15 @@ func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
 		ticker := res.Result.List[0]
 		bid = ticker.Bid1Price
 
+		p_dimmed.Print("⚡")
+		fmt.Printf("%s%%", (ticker.FundingRate * 100).String())
 		p_dimmed.Print(" M")
 		fmt.Print(ticker.MarkPrice)
 		p_dimmed.Print(" B")
 		fmt.Print(bid, "\n")
 	}
+
+	fmt.Println("")
 
 	// 177162484 Bybitplg2HTZRgxP........0.01084342/110.80237644
 	h2.Printf("%9s ", to.UserId)
@@ -169,9 +198,17 @@ func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
 
 	if qty == 0 {
 		fmt.Println("= SKIP")
-	} else if e.Debug.Enabled && e.Debug.SkipTransaction {
+		return nil
+	}
+	if e.Debug.Enabled && e.Debug.SkipTransaction {
 		p_warn.Print("= SKIP ")
 		p_dimmed.Println("by config")
+		return nil
+	}
+
+	order_id := ""
+	if e.Debug.Enabled && e.Debug.SkipTransaction {
+		// Do NOT remove this block to prevent mistake.
 	} else if res, err := trading_client.Trade().OrderCreate(ctx, bybit.TradeOrderCreateApiReq{
 		Category:  bybit.ProductTypeInverse,
 		Symbol:    coin.InvPerceptual(),
@@ -187,8 +224,44 @@ func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
 		p_fail_why.Println(res.RetMsg)
 		return fmt.Errorf("order create: %w", res.Err())
 	} else {
-		p_good.Print("✓ SUCCESS ")
-		fmt.Println(res.Result.OrderId)
+		p_good.Println("✓ SUCCESS")
+		order_id = res.Result.OrderId
+	}
+
+	if order_id == "" {
+		// Do nothing.
+		// Anyway, code does reach here if there is no order made.
+	} else if res, err := trading_client.Trade().GetOrderHistory(ctx, bybit.TradeGetOrderHistoryReq{
+		Category: bybit.ProductTypeInverse,
+		OrderId:  order_id,
+		Limit:    1,
+	}); err != nil {
+		p_warn.Print("failed to get order details ")
+		p_dimmed.Println(err.Error())
+		l.Warn("request for get order history", slog.String("err", err.Error()))
+	} else if !res.Ok() {
+		p_warn.Print("failed to get order details ")
+		p_dimmed.Println(res.Err())
+		l.Warn("get order history", slog.String("err", res.Err().Error()))
+	} else if len(res.Result.List) == 0 {
+		p_warn.Print("failed to get order details ")
+		p_dimmed.Println("order list empty")
+		l.Warn("order list empty")
+	} else if res.Result.List[0].OrderId != order_id {
+		p_warn.Print("failed to get order details ")
+		p_dimmed.Println("different order ID")
+		l.Warn("different order ID")
+	} else {
+		order := res.Result.List[0]
+		fmt.Print(" 🔔 ")
+		h2.Print(order.Qty.String())
+		if order.Qty == 1 {
+			fmt.Print(" contract was")
+		} else {
+			fmt.Print(" contracts were")
+		}
+		fmt.Print(" sold at the price of ")
+		h2.Println(order.Price.String())
 	}
 
 	return nil

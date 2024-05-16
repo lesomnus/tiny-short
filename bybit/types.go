@@ -5,9 +5,41 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
+
+type Timestamp time.Time
+
+func (t Timestamp) Time() time.Time {
+	return time.Time(t)
+}
+
+func (t Timestamp) MarshalJSON() ([]byte, error) {
+	s := strconv.FormatInt(time.Time(t).UnixMilli(), 10)
+	return []byte(s), nil
+}
+
+func (t *Timestamp) UnmarshalJSON(data []byte) error {
+	var ts int64
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		v, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			return err
+		}
+
+		ts = v
+	} else if err := json.Unmarshal(data, &ts); err != nil {
+		return err
+	}
+
+	sec := ts / 1000
+	nsec := (ts % 1000) * int64(time.Millisecond)
+	*t = Timestamp(time.Unix(sec, nsec))
+	return nil
+}
 
 type UserId uint64
 

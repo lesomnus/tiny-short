@@ -72,6 +72,9 @@ jobs:
             output:
               - $STDERR
 
+          misc:
+            use_color_output: always
+
           ' > .tiny-short.yaml
 
       - name: Order

@@ -13,7 +13,6 @@ import (
 
 func main() {
 	var conf *cmd.Config
-	color.NoColor = false
 
 	app := &cli.App{
 		Name: "tiny-short",
@@ -33,6 +32,13 @@ func main() {
 			}
 
 			conf = conf_
+			switch conf.Misc.UseColorOutput {
+			case "always":
+				color.NoColor = false
+			case "never":
+				color.NoColor = true
+			}
+
 			return nil
 		},
 		Action: func(c *cli.Context) error {

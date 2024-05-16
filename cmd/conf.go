@@ -22,6 +22,7 @@ type Config struct {
 	Move  MoveConfig   `yaml:"move"`
 
 	Log   LogConfig   `yaml:"log"`
+	Misc  MiscConfig  `yaml:"misc"`
 	Debug DebugConfig `yaml:"debug"`
 }
 
@@ -49,6 +50,10 @@ type LogConfig struct {
 	Enabled bool     `yaml:"enabled"`
 	Format  string   `yaml:"format"` // "text" | "json"
 	Output  []string `yaml:"output"` // filepath | "$STDOUT" | "$STDERR"
+}
+
+type MiscConfig struct {
+	UseColorOutput string `yaml:"use_color_output"` // "auto" | "always" | "never"
 }
 
 type DebugConfig struct {
@@ -111,6 +116,7 @@ func ReadConfig(path string) (*Config, error) {
 	}
 
 	defaultV(&conf.Log.Format, "text")
+	defaultV(&conf.Misc.UseColorOutput, "auto")
 
 	conf.Log.Output = removeDuplicate(conf.Log.Output)
 
@@ -123,6 +129,9 @@ func ReadConfig(path string) (*Config, error) {
 	}
 	if !slices.Contains([]string{"text", "json"}, conf.Log.Format) {
 		errs = append(errs, fmt.Errorf(`.log.format must be one of "text" or "json": %s`, conf.Log.Format))
+	}
+	if !slices.Contains([]string{"auto", "always", "never"}, conf.Misc.UseColorOutput) {
+		conf.Misc.UseColorOutput = "auto"
 	}
 	if conf.Move.Enabled && conf.Move.To == "" {
 		errs = append(errs, fmt.Errorf(".move.to must be set if .move.enabled is true"))

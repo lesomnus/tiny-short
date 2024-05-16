@@ -3,10 +3,31 @@ package bybit_test
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/lesomnus/tiny-short/bybit"
 	"github.com/stretchr/testify/require"
 )
+
+func TestTimestampJson(t *testing.T) {
+	t.Run("marshal", func(t *testing.T) {
+		require := require.New(t)
+
+		v := bybit.Timestamp(time.Unix(0, 42*1_000_000))
+		data, err := json.Marshal(&v)
+		require.NoError(err)
+		require.Equal("42", string(data))
+	})
+
+	t.Run("unmarshal", func(t *testing.T) {
+		require := require.New(t)
+
+		var v bybit.Timestamp
+		err := json.Unmarshal([]byte(`"42"`), &v)
+		require.NoError(err)
+		require.Equal(int64(42), time.Time(v).UnixMilli())
+	})
+}
 
 func TestTransferIdJSON(t *testing.T) {
 	t.Run("marshal", func(t *testing.T) {

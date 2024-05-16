@@ -32,6 +32,9 @@ log:
     # - $STDERR
     - .tiny-short.log
 
+misc:
+  use_color_output: auto
+
 debug:
   enabled: true
   skip_transaction: true # No transfer and no trading.
