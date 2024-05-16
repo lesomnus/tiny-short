@@ -7,7 +7,7 @@ on:
     - cron: "5 */8 * * *"
 
 jobs:
-  Explore-GitHub-Actions:
+  Short:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-go@v5
@@ -58,7 +58,7 @@ jobs:
 
           ' > .tiny-short.yaml
 
-      - name: Short
+      - name: Order
         run: go run .
 
       - name: Encrypt secrets

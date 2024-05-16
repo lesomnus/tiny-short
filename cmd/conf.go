@@ -156,6 +156,8 @@ func ParseArgs(args []string) (*Config, error) {
 		conf.Move.To = ""
 	}
 
+	defaultV(&conf.Log.Format, "text")
+
 	conf.Log.Output = removeDuplicate(conf.Log.Output)
 
 	errs := []error{}
@@ -180,6 +182,13 @@ func ParseArgs(args []string) (*Config, error) {
 	}
 
 	return conf, nil
+}
+
+func defaultV[T comparable](target *T, v T) {
+	var zero T
+	if *target == zero {
+		*target = v
+	}
 }
 
 func fileExists(p string) bool {
