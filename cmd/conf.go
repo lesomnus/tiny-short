@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"log/slog"
@@ -111,6 +110,8 @@ func ReadConfig(path string) (*Config, error) {
 		conf.Move.To = ""
 	}
 
+	defaultV(&conf.Log.Format, "text")
+
 	conf.Log.Output = removeDuplicate(conf.Log.Output)
 
 	errs := []error{}
@@ -137,49 +138,11 @@ func ReadConfig(path string) (*Config, error) {
 	return conf, nil
 }
 
-func ParseArgs(args []string) (*Config, error) {
-	conf := &Config{}
-
-	flags := flag.NewFlagSet(args[0], flag.ExitOnError)
-	flags.StringVar(&conf.path, "conf", ".tiny-short.yaml", "path to a config file")
-	flags.Parse(args[1:])
-
-	data, err := os.ReadFile(conf.path)
-	if err != nil {
-		return nil, fmt.Errorf("read config at %s: %w", conf.path, err)
+func defaultV[T comparable](target *T, v T) {
+	var zero T
+	if *target == zero {
+		*target = v
 	}
-	if err := yaml.Unmarshal(data, &conf); err != nil {
-		return nil, fmt.Errorf("unmarshal config at %s: %w", conf.path, err)
-	}
-	if !conf.Move.Enabled {
-		conf.Move.From = nil
-		conf.Move.To = ""
-	}
-
-	conf.Log.Output = removeDuplicate(conf.Log.Output)
-
-	errs := []error{}
-	if !fileExists(conf.Secret.ApiKeyFile) {
-		errs = append(errs, errors.New(".api_key_file: file not exist"))
-	}
-	if !fileExists(conf.Secret.PrivateKeyFile) {
-		errs = append(errs, errors.New(".private_key_file: file not exist"))
-	}
-	if !slices.Contains([]string{"text", "json"}, conf.Log.Format) {
-		errs = append(errs, fmt.Errorf(`.log.format must be one of "text" or "json": %s`, conf.Log.Format))
-	}
-	if conf.Move.Enabled && conf.Move.To == "" {
-		errs = append(errs, fmt.Errorf(".move.to must be set if .move.enabled is true"))
-	}
-	if slices.Contains(conf.Move.From, "") {
-		errs = append(errs, fmt.Errorf(".move.from cannot contain empty string"))
-	}
-
-	if len(errs) != 0 {
-		return nil, errors.Join(errs...)
-	}
-
-	return conf, nil
 }
 
 func fileExists(p string) bool {
