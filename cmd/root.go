@@ -9,6 +9,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/lesomnus/tiny-short/bybit"
 	"github.com/lesomnus/tiny-short/log"
@@ -194,7 +195,7 @@ func Root(ctx context.Context, conf *Config) error {
 				continue
 			}
 
-			if s, ok := secrets.Get(u.UserId); ok {
+			if s, ok := secrets.Get(u.UserId); ok && s.Expiry() > 96*time.Hour {
 				u.Secret = s
 			} else if s, err := createSubApiKey(ctx, client, *u); err != nil {
 				h2.Printf("%9s ", u.UserId)
