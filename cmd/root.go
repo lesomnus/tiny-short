@@ -78,7 +78,7 @@ func Root(ctx context.Context, conf *Config) error {
 		fmt.Print(actingUser.Secret.DateExpired, " ... ")
 
 		h2.Print("left ")
-		h2.Println(DurationString(actingUser.Secret.Expiry()))
+		h2.Println(DurationString(time.Until(actingUser.Secret.DateExpired)))
 
 		isGood := true
 		h2.Println("Check List:")
@@ -195,7 +195,7 @@ func Root(ctx context.Context, conf *Config) error {
 				continue
 			}
 
-			if s, ok := secrets.Get(u.UserId); ok && s.Expiry() > 96*time.Hour {
+			if s, ok := secrets.Get(u.UserId); ok && time.Until(s.DateExpired) > 96*time.Hour {
 				u.Secret = s
 			} else if s, err := createSubApiKey(ctx, client, *u); err != nil {
 				h2.Printf("%9s ", u.UserId)
@@ -210,7 +210,7 @@ func Root(ctx context.Context, conf *Config) error {
 			}
 
 			p_good.Print("✓ OK ")
-			fmt.Printf("🔑 left %s\n", DurationString(u.Secret.Expiry()))
+			fmt.Printf("🔑 left %s\n", DurationString(time.Until(u.Secret.DateExpired)))
 		}
 
 		if conf.Secret.Store.Enabled {

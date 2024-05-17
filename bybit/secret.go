@@ -33,10 +33,6 @@ type SecretRecord struct {
 	DateExpired time.Time  `json:"dateExpired"`
 }
 
-func (r *SecretRecord) Expiry() time.Duration {
-	return r.DateExpired.Sub(r.DateCreated)
-}
-
 func (r *SecretRecord) Hmac() ([]byte, error) {
 	return []byte(r.Secret), nil
 }

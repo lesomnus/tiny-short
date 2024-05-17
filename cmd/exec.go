@@ -245,11 +245,12 @@ func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
 
 		// Wait for the trading system closes the order.
 		// Note that `Tarde.GetOrderHistory` only queries closed orders.
-		time.Sleep(1 * time.Second)
+		time.Sleep(3 * time.Second)
 
-		ok := false
-		for i := 0; i < 3; i++ {
-			res, err := trading_client.Trade().GetOrderHistory(ctx, bybit.TradeGetOrderHistoryReq{
+		RetryCount := 3
+		i := 0
+		for ; i < RetryCount; i++ {
+			res, err := trading_client.Trade().OrderHistory(ctx, bybit.TradeOrderHistoryReq{
 				Category: bybit.ProductTypeInverse,
 				OrderId:  order_id,
 				Limit:    1,
@@ -278,7 +279,7 @@ func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
 			}
 
 			order := res.Result.List[0]
-			h2.Print(order.Qty.String())
+			h2.Print(order.AvgPrice.String())
 			if order.Qty == 1 {
 				h2.Print(" contract ")
 				fmt.Print("was")
@@ -291,12 +292,10 @@ func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
 
 			//              "Places N contracts ..."
 			p_dimmed.Printf("       %s\n", order.UpdatedTime.Time())
-
-			ok = true
 			break
 		}
 
-		if !ok {
+		if i == RetryCount {
 			p_warn.Print("failed to get order details ")
 			p_dimmed.Println("order does not closed")
 			l.Warn("order does not closed")

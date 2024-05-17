@@ -4,7 +4,8 @@ import "context"
 
 type TradeApi interface {
 	OrderCreate(ctx context.Context, req TradeOrderCreateApiReq) (TradeOrderCreateApiRes, error)
-	GetOrderHistory(ctx context.Context, req TradeGetOrderHistoryReq) (TradeGetOrderHistoryRes, error)
+	OrderHistory(ctx context.Context, req TradeOrderHistoryReq) (TradeOrderHistoryRes, error)
+	ExecutionList(ctx context.Context, req TradeExecutionListReq) (TradeExecutionListRes, error)
 }
 
 type TradeOrderCreateApiReq struct {
@@ -23,12 +24,12 @@ type TradeOrderCreateApiRes struct {
 	} `json:"result"`
 }
 
-type TradeGetOrderHistoryReq struct {
+type TradeOrderHistoryReq struct {
 	Category ProductType `url:"category"`
 	OrderId  string      `url:"orderId"`
 	Limit    uint        `url:"limit"`
 }
-type TradeGetOrderHistoryRes struct {
+type TradeOrderHistoryRes struct {
 	ResponseBase `json:",inline"`
 
 	Result struct {
@@ -44,6 +45,25 @@ type TradeGetOrderHistoryRes struct {
 	} `json:"result"`
 }
 
+type TradeExecutionListReq struct {
+	Category ProductType `url:"category"`
+	OrderId  string      `url:"orderId"`
+	Limit    uint        `url:"limit"`
+}
+type TradeExecutionListRes struct {
+	ResponseBase `json:",inline"`
+
+	Result struct {
+		Category ProductType `json:"category"`
+		List     []struct {
+			OrderId   string    `json:"orderId"`
+			ExecPrice Amount    `json:"execPrice"`
+			ExecQty   Amount    `json:"execQty"`
+			ExecTime  Timestamp `json:"execTime"`
+		} `json:"list"`
+	} `json:"result"`
+}
+
 type tradeApi struct {
 	client *client
 }
@@ -54,8 +74,14 @@ func (a *tradeApi) OrderCreate(ctx context.Context, req TradeOrderCreateApiReq) 
 	return
 }
 
-func (a *tradeApi) GetOrderHistory(ctx context.Context, req TradeGetOrderHistoryReq) (res TradeGetOrderHistoryRes, err error) {
+func (a *tradeApi) OrderHistory(ctx context.Context, req TradeOrderHistoryReq) (res TradeOrderHistoryRes, err error) {
 	url := a.client.conf.endpoint.Get("/v5/order/history")
+	err = a.client.get(ctx, url, &req, &res)
+	return
+}
+
+func (a *tradeApi) ExecutionList(ctx context.Context, req TradeExecutionListReq) (res TradeExecutionListRes, err error) {
+	url := a.client.conf.endpoint.Get("/v5/execution/list")
 	err = a.client.get(ctx, url, &req, &res)
 	return
 }
