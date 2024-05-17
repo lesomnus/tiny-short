@@ -287,7 +287,7 @@ func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
 				fmt.Print("were")
 			}
 			fmt.Print(" sold at the price of ")
-			h2.Println(order.Price.String())
+			h2.Println(order.AvgPrice.String())
 
 			//              "Places N contracts ..."
 			p_dimmed.Printf("       %s\n", order.UpdatedTime.Time())

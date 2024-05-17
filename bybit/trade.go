@@ -33,9 +33,10 @@ type TradeGetOrderHistoryRes struct {
 
 	Result struct {
 		List []struct {
-			OrderId string `json:"orderId"`
-			Price   Amount `json:"price"`
-			Qty     Amount `json:"qty"`
+			OrderId  string `json:"orderId"`
+			Price    Amount `json:"price"` // Order price.
+			Qty      Amount `json:"qty"`
+			AvgPrice Amount `json:"avgPrice"` // Average filled price.
 
 			CreatedTime Timestamp `json:"createdTime"`
 			UpdatedTime Timestamp `json:"updatedTime"`
