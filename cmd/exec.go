@@ -193,8 +193,13 @@ func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
 	trading_client := e.Client.Clone(e.Move.to.Secret)
 
 	qty := int(balance * bid * (1 - bybit.FeePerpTake))
-	fmt.Print("Qty ")
-	h2.Printf("%d ", qty)
+	fmt.Print("Places ")
+	h2.Print(qty)
+	if qty == 1 {
+		h2.Print(" contract ")
+	} else {
+		h2.Print(" contracts ")
+	}
 
 	if qty == 0 {
 		fmt.Println("= SKIP")
@@ -209,6 +214,7 @@ func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
 	order_id := ""
 	if e.Debug.Enabled && e.Debug.SkipTransaction {
 		// Do NOT remove this block to prevent mistake.
+		fmt.Println()
 	} else if res, err := trading_client.Trade().OrderCreate(ctx, bybit.TradeOrderCreateApiReq{
 		Category:  bybit.ProductTypeInverse,
 		Symbol:    coin.InvPerceptual(),
@@ -224,44 +230,77 @@ func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
 		p_fail_why.Println(res.RetMsg)
 		return fmt.Errorf("order create: %w", res.Err())
 	} else {
-		p_good.Println("✓ SUCCESS")
 		order_id = res.Result.OrderId
+
+		p_good.Print("✓ SUCCESS ")
+		p_dimmed.Println(order_id)
 	}
 
 	if order_id == "" {
 		// Do nothing.
-		// Anyway, code does reach here if there is no order made.
-	} else if res, err := trading_client.Trade().GetOrderHistory(ctx, bybit.TradeGetOrderHistoryReq{
-		Category: bybit.ProductTypeInverse,
-		OrderId:  order_id,
-		Limit:    1,
-	}); err != nil {
-		p_warn.Print("failed to get order details ")
-		p_dimmed.Println(err.Error())
-		l.Warn("request for get order history", slog.String("err", err.Error()))
-	} else if !res.Ok() {
-		p_warn.Print("failed to get order details ")
-		p_dimmed.Println(res.Err())
-		l.Warn("get order history", slog.String("err", res.Err().Error()))
-	} else if len(res.Result.List) == 0 {
-		p_warn.Print("failed to get order details ")
-		p_dimmed.Println("order list empty")
-		l.Warn("order list empty")
-	} else if res.Result.List[0].OrderId != order_id {
-		p_warn.Print("failed to get order details ")
-		p_dimmed.Println("different order ID")
-		l.Warn("different order ID")
+		// Anyway, code does not reach here if there is no order made.
 	} else {
-		order := res.Result.List[0]
-		fmt.Print(" 🔔 ")
-		h2.Print(order.Qty.String())
-		if order.Qty == 1 {
-			fmt.Print(" contract was")
-		} else {
-			fmt.Print(" contracts were")
+		//        "Places N contracts ..."
+		fmt.Print("     ↳ ")
+
+		// Wait for the trading system closes the order.
+		// Note that `Tarde.GetOrderHistory` only queries closed orders.
+		time.Sleep(1 * time.Second)
+
+		ok := false
+		for i := 0; i < 3; i++ {
+			res, err := trading_client.Trade().GetOrderHistory(ctx, bybit.TradeGetOrderHistoryReq{
+				Category: bybit.ProductTypeInverse,
+				OrderId:  order_id,
+				Limit:    1,
+			})
+			if err != nil {
+				p_warn.Print("failed to get order details ")
+				p_dimmed.Println(err.Error())
+				l.Warn("request for get order history", slog.String("err", err.Error()))
+				break
+			}
+			if !res.Ok() {
+				p_warn.Print("failed to get order details ")
+				p_dimmed.Println(res.Err())
+				l.Warn("get order history", slog.String("err", res.Err().Error()))
+				break
+			}
+			if len(res.Result.List) == 0 {
+				// Order not yes closed?
+				continue
+			}
+			if res.Result.List[0].OrderId != order_id {
+				p_warn.Print("failed to get order details ")
+				p_dimmed.Println("different order ID")
+				l.Warn("different order ID")
+				break
+			}
+
+			order := res.Result.List[0]
+			h2.Print(order.Qty.String())
+			if order.Qty == 1 {
+				h2.Print(" contract ")
+				fmt.Print("was")
+			} else {
+				h2.Print(" contracts ")
+				fmt.Print("were")
+			}
+			fmt.Print(" sold at the price of ")
+			h2.Println(order.Price.String())
+
+			//              "Places N contracts ..."
+			p_dimmed.Printf("       %s\n", order.UpdatedTime.Time())
+
+			ok = true
+			break
 		}
-		fmt.Print(" sold at the price of ")
-		h2.Println(order.Price.String())
+
+		if !ok {
+			p_warn.Print("failed to get order details ")
+			p_dimmed.Println("order does not closed")
+			l.Warn("order does not closed")
+		}
 	}
 
 	return nil
