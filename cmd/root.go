@@ -24,7 +24,7 @@ func Root(ctx context.Context, conf *Config) error {
 	l.Info("read config", slog.String("path", conf.path))
 	ctx = log.Into(ctx, l)
 
-	actingUser := bybit.AccountInfo{
+	acting_account := bybit.AccountInfo{
 		Secret: bybit.SecretRecord{
 			Type: conf.Secret.Type,
 		},
@@ -32,14 +32,14 @@ func Root(ctx context.Context, conf *Config) error {
 	if data, err := os.ReadFile(conf.Secret.ApiKeyFile); err != nil {
 		return fmt.Errorf("read %s: %w", conf.Secret.ApiKeyFile, err)
 	} else {
-		actingUser.Secret.ApiKey = string(data)
-		actingUser.Secret.ApiKey = strings.TrimSpace(actingUser.Secret.ApiKey)
+		acting_account.Secret.ApiKey = string(data)
+		acting_account.Secret.ApiKey = strings.TrimSpace(acting_account.Secret.ApiKey)
 	}
 	if data, err := os.ReadFile(conf.Secret.PrivateKeyFile); err != nil {
 		return fmt.Errorf("read %s: %w", conf.Secret.PrivateKeyFile, err)
 	} else {
-		actingUser.Secret.Secret = string(data)
-		actingUser.Secret.Secret = strings.TrimSpace(actingUser.Secret.Secret)
+		acting_account.Secret.Secret = string(data)
+		acting_account.Secret.Secret = strings.TrimSpace(acting_account.Secret.Secret)
 	}
 
 	secrets := bybit.SecretStore{}
@@ -58,27 +58,27 @@ func Root(ctx context.Context, conf *Config) error {
 		return fmt.Errorf("invalid main net url: %w", err)
 	}
 
-	client := bybit.NewClient(actingUser.Secret, bybit.WithNetwork(*mainnet))
+	client := bybit.NewClient(acting_account.Secret, bybit.WithNetwork(*mainnet))
 	if res, err := client.User().QueryApi(ctx, bybit.UserQueryApiReq{}); err != nil {
 		return fmt.Errorf("request for user query API: %w", err)
 	} else if !res.Ok() {
 		return fmt.Errorf("user query API: %w", res.Err())
 	} else {
-		actingUser.UserId = res.Result.UserId
-		actingUser.Secret.DateCreated = res.Result.CreatedAt
-		actingUser.Secret.DateExpired = res.Result.ExpiredAt
+		acting_account.UserId = res.Result.UserId
+		acting_account.Secret.DateCreated = res.Result.CreatedAt
+		acting_account.Secret.DateExpired = res.Result.ExpiredAt
 
-		h1.Print("API Key Status")
-		fmt.Printf(" 🔑\n")
+		fmt.Print("🔑 ")
+		h1.Print("API Key Status\n")
 		h2.Print("UID ")
-		fmt.Println(actingUser.UserId)
+		fmt.Println(acting_account.UserId)
 		h2.Print("Created at ")
-		fmt.Println(actingUser.Secret.DateCreated)
+		fmt.Println(acting_account.Secret.DateCreated)
 		h2.Print("Expired at ")
-		fmt.Print(actingUser.Secret.DateExpired, " ... ")
+		fmt.Print(acting_account.Secret.DateExpired, " ... ")
 
 		h2.Print("left ")
-		h2.Println(DurationString(time.Until(actingUser.Secret.DateExpired)))
+		h2.Println(DurationString(time.Until(acting_account.Secret.DateExpired)))
 
 		isGood := true
 		h2.Println("Check List:")
@@ -109,7 +109,7 @@ func Root(ctx context.Context, conf *Config) error {
 		}
 
 		h2.Print("        Transfer ")
-		if !conf.Move.Enabled {
+		if !conf.Transfer.Enabled {
 			fmt.Println("= Disabled")
 		} else if slices.Contains(res.Result.Permissions.Wallet, "SubMemberTransfer") {
 			p_good.Println("✓ SubMemberTransfer")
@@ -120,11 +120,11 @@ func Root(ctx context.Context, conf *Config) error {
 		}
 
 		h2.Print("    Main Account ")
-		if !conf.Move.Enabled {
+		if !conf.Transfer.Enabled {
 			fmt.Println("= Disabled")
 		} else if res.Result.IsMaster {
 			p_good.Println("✓ OK")
-			actingUser.Username = "$MAIN"
+			acting_account.Username = "$MAIN"
 		} else {
 			isGood = false
 			p_fail.Print("✗ Sub Account ")
@@ -136,112 +136,116 @@ func Root(ctx context.Context, conf *Config) error {
 		}
 	}
 
-	// Assert:
-	//   If `conf.Move.Enabled`` == true, `actingUser` must be a main account.
-	h1.Println("\nResolve user IDs...")
-	if !conf.Move.Enabled {
-		fmt.Println("  Skipped as no transfer required")
+	fmt.Println()
+
+	transfer_plan := TransferPlan{}
+	if !conf.Transfer.Enabled {
+		transfer_plan.Users = []bybit.AccountInfo{acting_account}
 	} else {
-		res, err := client.User().QuerySubMembers(ctx, bybit.UserQuerySubMembersReq{})
-		if err != nil {
+		transfer_plan.Users = make([]bybit.AccountInfo, len(conf.Transfer.From)+1)
+		users := transfer_plan.Users
+
+		fmt.Print("🪪  ")
+		h1.Print("Resolve User IDs\n")
+
+		// Assert:
+		//   If `conf.Move.Enabled` == true, `actingUser` must be a main account.
+		if res, err := client.User().QuerySubMembers(ctx, bybit.UserQuerySubMembersReq{}); err != nil {
 			return fmt.Errorf("request for query sub members: %w", err)
 		} else if !res.Ok() {
 			return fmt.Errorf("query sub members: %w", res.Err())
-		}
-
-		// Fills user IDs by username.
-		conf.Move.from = make([]bybit.AccountInfo, len(conf.Move.From))
-		users := make([]*bybit.AccountInfo, len(conf.Move.From)+1)
-		users[0] = &conf.Move.to
-		users[0].Username = conf.Move.To
-		for i := range conf.Move.from {
-			users[i+1] = &conf.Move.from[i]
-			users[i+1].Username = conf.Move.From[i]
-		}
-
-	L:
-		for _, u := range users {
-			if u.Username == "$MAIN" {
-				*u = actingUser
-				continue
+		} else {
+			// Fills user IDs by username.
+			users[0].Nickname = conf.Transfer.To.Nickname
+			users[0].Username = conf.Transfer.To.Username
+			for i, a := range conf.Transfer.From {
+				users[i+1].Nickname = a.Nickname
+				users[i+1].Username = a.Username
 			}
 
-			for _, v := range res.Result.SubMembers {
-				if u.Username == v.Username {
-					u.UserId = v.UserId
-					continue L
+			failed := false
+			for i := range users {
+				u := &users[i]
+				ok := false
+				if u.Username == "$MAIN" {
+					ok = true
+					*u = acting_account
+				} else {
+					for _, v := range res.Result.SubMembers {
+						if u.Username == v.Username {
+							ok = true
+							u.UserId = v.UserId
+							break
+						}
+					}
 				}
+
+				h2.Printf("%8s ", u.DisplayNameTrunc(8))
+				p_dimmed.Printf("%s ", u.UserId.String())
+				if ok {
+					p_good.Printf("✓ OK\n")
+				} else {
+					p_fail.Printf("✓ Not found\n")
+				}
+
+				failed = !ok
 			}
 
-			p_fail.Printf("User %s not found, abort.\n", u.Username)
-			return fmt.Errorf("user %s not found", u.Username)
+			if failed {
+				return fmt.Errorf("some users are not found")
+			}
 		}
 
-		// Fills secrets.
-		errs := make([]error, 0)
-		for _, u := range users {
-			if u.Username == "$MAIN" {
-				h2.Printf("%9s ", u.UserId)
-				p_dimmed.Print("$MAIN..............")
-				p_good.Println("✓ OK")
-				continue
-			}
-
-			h2.Printf("%9s ", u.UserId)
-			p_dimmed.Printf("%s...", u.Username)
-			if u.Username != conf.Move.to.Username {
-				// Sub user that does not need API key.
-				p_good.Print("✓ OK \n")
-				continue
-			}
+		u := &users[0]
+		if u.Username != "$Main" {
+			fmt.Println()
+			h2.Print("Getting trading account's API key... ")
 
 			if s, ok := secrets.Get(u.UserId); ok && time.Until(s.DateExpired) > 96*time.Hour {
 				u.Secret = s
+				p_good.Print("✓ OK ")
+				p_dimmed.Print("from secret store ")
 			} else if s, err := createSubApiKey(ctx, client, *u); err != nil {
-				h2.Printf("%9s ", u.UserId)
-				p_dimmed.Printf("%s ", u.Username)
-				p_fail.Print("✗ Create API key ")
+				p_fail.Print("✗ Failed to create API key ")
 				p_fail_why.Printf("%s\n", err.Error())
-				errs = append(errs, fmt.Errorf("create sub API key: %w", err))
-				continue
+				return fmt.Errorf("create trading account's API key: %w", err)
 			} else {
 				u.Secret = s
 				secrets.Set(u.UserId, s)
+
+				p_good.Print("✓ OK ")
+				p_dimmed.Print("new API key is created ")
 			}
 
-			p_good.Print("✓ OK ")
 			fmt.Printf("🔑 left %s\n", DurationString(time.Until(u.Secret.DateExpired)))
-		}
 
-		if conf.Secret.Store.Enabled {
-			if err := func() error {
-				f, err := os.OpenFile(conf.Secret.Store.Path, os.O_RDWR|os.O_CREATE, 0600)
-				if err != nil {
-					return fmt.Errorf("open secret store: %w", err)
-				}
-				if err := bybit.SaveSecrets(f, secrets); err != nil {
-					return err
-				}
+			if conf.Secret.Store.Enabled {
+				if err := func() error {
+					f, err := os.OpenFile(conf.Secret.Store.Path, os.O_RDWR|os.O_CREATE, 0600)
+					if err != nil {
+						return fmt.Errorf("open secret store: %w", err)
+					}
+					defer f.Close()
 
-				return nil
-			}(); err != nil {
-				p_fail.Printf("Failed to save secrets at %s ", conf.Secret.Store.Path)
-				p_fail_why.Println(err.Error())
-				errs = append(errs, fmt.Errorf("save secrets at %s: %w", conf.Secret.Store.Path, err))
+					if err := bybit.SaveSecrets(f, secrets); err != nil {
+						return err
+					}
+
+					return nil
+				}(); err != nil {
+					p_fail.Printf("Failed to save secrets at %s ", conf.Secret.Store.Path)
+					p_fail_why.Println(err.Error())
+					return fmt.Errorf("save secrets at %s: %w", conf.Secret.Store.Path, err)
+				}
 			}
-
-		}
-
-		if len(errs) > 0 {
-			return errors.Join(errs...)
 		}
 	}
 
 	exec := Exec{
-		Client:  client,
-		Move:    conf.Move,
-		Debug:   conf.Debug,
-		Secrets: secrets,
+		Client:       client,
+		TransferPlan: transfer_plan,
+		Debug:        conf.Debug,
+		Secrets:      secrets,
 	}
 
 	errs := make([]error, 0)

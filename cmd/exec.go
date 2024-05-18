@@ -13,17 +13,30 @@ import (
 	"github.com/lesomnus/tiny-short/log"
 )
 
+type TransferPlan struct {
+	Users []bybit.AccountInfo // [to, from...]
+}
+
+func (p *TransferPlan) Dest() *bybit.AccountInfo {
+	return &p.Users[0]
+}
+
+func (p *TransferPlan) Source() []bybit.AccountInfo {
+	return p.Users[1:]
+}
+
 type Exec struct {
-	Client  bybit.Client
-	Move    MoveConfig
-	Debug   DebugConfig
-	Secrets bybit.SecretStore
+	Client bybit.Client
+
+	TransferPlan TransferPlan
+	Secrets      bybit.SecretStore
+
+	Debug DebugConfig
 }
 
 func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
 	l := log.From(ctx)
-	to := e.Move.to
-	pC := pCoin(coin)
+	p_coin := pCoin(coin)
 
 	fmt.Printf("\n----------------\n")
 	color.New(color.BgMagenta, color.FgHiWhite).Print(" SHORT ")
@@ -51,7 +64,10 @@ func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
 		fmt.Print("|")
 	}
 
-	var bid bybit.Amount
+	var (
+		mark_price bybit.Amount
+		bid1_price bybit.Amount
+	)
 	if res, err := e.Client.Market().Tickers(ctx, bybit.MarketTickersReq{
 		Category: bybit.ProductTypeInverse,
 		Symbol:   coin.InvPerceptual(),
@@ -63,24 +79,30 @@ func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
 		return fmt.Errorf("tickers empty: %w", res.Err())
 	} else {
 		ticker := res.Result.List[0]
-		bid = ticker.Bid1Price
+		mark_price = ticker.MarkPrice
+		bid1_price = ticker.Bid1Price
 
 		p_dimmed.Print("⚡")
 		fmt.Printf("%s%%", (ticker.FundingRate * 100).String())
 		p_dimmed.Print(" M")
-		fmt.Print(ticker.MarkPrice)
+		fmt.Print(mark_price)
 		p_dimmed.Print(" B")
-		fmt.Print(bid, "\n")
+		fmt.Print(bid1_price, "\n")
 	}
 
-	fmt.Println("")
+	fmt.Println()
 
-	// 177162484 Bybitplg2HTZRgxP........0.01084342/110.80237644
-	h2.Printf("%9s ", to.UserId)
-	p_dimmed.Printf("%s", to.Username)
-	p_dimmed.Print(strings.Repeat(".", 24-len(to.Username)))
+	dst := e.TransferPlan.Dest()
+
+	// nickname......0.01084342 ≈ 42 USD
+	//  + nickname...0.01084342 ≈ 42 USD
+	{
+		name := dst.DisplayNameTrunc(8)
+		h2.Print(name)
+		p_dimmed.Print(strings.Repeat(".", (3+8+3)-len(name)))
+	}
 	if res, err := e.Client.Asset().QueryAccountCoinBalance(ctx, bybit.AssetQueryAccountCoinBalanceReq{
-		MemberId:    to.UserId.String(),
+		MemberId:    dst.UserId.String(),
 		AccountType: bybit.AccountTypeContract,
 		Coin:        coin,
 	}); err != nil {
@@ -88,17 +110,23 @@ func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
 	} else if !res.Ok() {
 		return fmt.Errorf("query account coin balance: %w", res.Err())
 	} else {
-		b := res.Result.Balance
-		pC.Print(b.TransferBalance)
-		fmt.Print("/")
-		pC.Println(b.WalletBalance)
+		b := res.Result.Balance.TransferBalance
+		p_coin.Printf("%8f", b)
+		p_dimmed.Printf(" ≈ %8f USD\n", b*mark_price)
 	}
 
-	for _, from := range e.Move.from {
+	for _, src := range e.TransferPlan.Source() {
+		{
+			name := src.DisplayNameTrunc(8)
+			fmt.Print(" + ")
+			h2.Print(name)
+			p_dimmed.Print(strings.Repeat(".", (8+3)-len(name)))
+		}
+
 		var balance bybit.Amount
 		if res, err := e.Client.Asset().QueryAccountCoinBalance(ctx, bybit.AssetQueryAccountCoinBalanceReq{
-			MemberId:      from.UserId.String(),
-			ToMemberId:    to.UserId.String(),
+			MemberId:      src.UserId.String(),
+			ToMemberId:    dst.UserId.String(),
 			AccountType:   bybit.AccountTypeContract,
 			ToAccountType: bybit.AccountTypeContract,
 			Coin:          coin,
@@ -110,89 +138,91 @@ func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
 			balance = res.Result.Balance.TransferBalance
 		}
 
-		//  ↖ 178225536 BybitydINQ0FotFH.....0.00698261 ✗ IGNORE amount too small
-		fmt.Print(" ⮤ ")
-		h2.Printf("%9s ", from.UserId)
-		p_dimmed.Printf("%s", from.Username)
-		p_dimmed.Print(strings.Repeat(".", 21-len(from.Username)))
-		pC.Print(balance)
+		p_coin.Printf("%8f", balance)
+		p_dimmed.Printf(" ≈ %8f USD ", balance*mark_price)
 
 		if balance == 0 {
-			fmt.Println(" = SKIP")
+			fmt.Println("= SKIP")
 			continue
 		}
 
 		if e.Debug.Enabled && (e.Debug.SkipTransaction || e.Debug.SkipTransfer) {
-			p_warn.Print(" = SKIP ")
+			p_warn.Print("= SKIP ")
 			p_dimmed.Println("by config")
 		} else if res, err := e.Client.Asset().UniversalTransfer(ctx, bybit.AssetUniversalTransferReq{
-			Coin: coin,
-			// Amount: "0.00000000001",
-			// Amount:          "0.0001",
+			Coin:            coin,
 			Amount:          balance.String(),
-			FromMember:      from.UserId,
-			ToMember:        to.UserId,
+			FromMember:      src.UserId,
+			ToMember:        dst.UserId,
 			FromAccountType: bybit.AccountTypeContract,
 			ToAccountType:   bybit.AccountTypeContract,
 		}); err != nil {
-			p_fail.Print(" ✗ REQ FAILED ")
+			p_fail.Print("✗ REQ FAILED ")
 			p_fail_why.Println(err.Error())
 			return fmt.Errorf("request for asset transfer: %w", err)
 		} else if !res.Ok() {
 			switch res.RetCode {
 			case bybit.RetCodeUnacceptableAmountAccuracy:
-				p_warn.Print(" ✗ IGNORE ")
+				p_warn.Print("✗ IGNORE ")
 				p_dimmed.Println("amount too small")
 				continue
 			default:
-				p_fail.Print(" ✗ ABORTED ")
+				p_fail.Print("✗ ABORTED ")
 				p_fail_why.Println(res.RetMsg)
 				return fmt.Errorf("asset transfer: %w", res.Err())
 			}
 		} else if res.Result.Status != bybit.TransferStatusSuccess {
 			switch res.Result.Status {
 			case bybit.TransferStatusUnknown:
-				fmt.Print(" ? UNKNOWN ")
+				fmt.Print("? UNKNOWN ")
 				p_dimmed.Println(res.RetMsg)
 			case bybit.TransferStatusPending:
-				fmt.Print(" ~ PENDING ")
+				fmt.Print("~ PENDING ")
 				p_dimmed.Println(res.RetMsg)
 			case bybit.TransferStatusFailed:
-				p_fail.Print(" ✗ FAILED ")
+				p_fail.Print("✗ FAILED ")
 				p_fail_why.Println(res.RetMsg)
 			default:
-				p_fail.Print(" ? UNSUPPORTED ")
+				p_fail.Print("? UNSUPPORTED ")
 				p_fail_why.Println("unknown status: ", res.Result.Status)
 			}
 			return fmt.Errorf("transfer not succeed: %s", res.Result.Status)
 		} else {
-			p_good.Println(" ✓ SUCCESS")
+			p_good.Println("✓ SUCCESS")
 		}
 	}
 
+	trading_client := e.Client.Clone(e.TransferPlan.Dest().Secret)
+
 	var balance bybit.Amount
-	p_dimmed.Println("                                  ----------")
-	if res, err := e.Client.Asset().QueryAccountCoinBalance(ctx, bybit.AssetQueryAccountCoinBalanceReq{
-		MemberId:    to.UserId.String(),
+	p_dimmed.Println("              ----------")
+	if res, err := trading_client.Account().WalletBalance(ctx, bybit.AccountWalletBalanceReq{
 		AccountType: bybit.AccountTypeContract,
 		Coin:        coin,
 	}); err != nil {
-		return fmt.Errorf("request for query account coin balance: %w", err)
+		return fmt.Errorf("request for wallet balance: %w", err)
 	} else if !res.Ok() {
-		return fmt.Errorf("query account coin balance: %w", res.Err())
+		return fmt.Errorf("wallet balance: %w", res.Err())
+	} else if len(res.Result.List) == 0 {
+		return fmt.Errorf("wallet balance list empty")
+	} else if len(res.Result.List[0].Coin) == 0 {
+		return fmt.Errorf("wallet balance coin list")
 	} else {
-		b := res.Result.Balance
-		balance = b.TransferBalance
+		c := res.Result.List[0].Coin[0]
+		balance = c.AvailableToWithdraw
 
-		fmt.Print("Short by market order             ")
-		pC.Print(balance)
-		fmt.Print("/")
-		pC.Println(b.WalletBalance)
+		p_dimmed.Print("              ")
+		p_coin.Printf("%8f", balance)
+		p_dimmed.Printf(" ≈ %8f USD\n", balance*mark_price)
+
+		p_dimmed.Print("           of ")
+		fmt.Printf("%8f", c.Equity)
+		p_dimmed.Printf(" ≈ %8f USD\n", c.Equity*mark_price)
 	}
 
-	trading_client := e.Client.Clone(e.Move.to.Secret)
+	fmt.Printf("\nShort by market order\n")
 
-	qty := int(balance * bid * (1 - bybit.FeePerpTake))
+	qty := int(balance * bid1_price * (1 - bybit.FeePerpTake))
 	fmt.Print("Places ")
 	h2.Print(qty)
 	if qty == 1 {
@@ -279,7 +309,7 @@ func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
 			}
 
 			order := res.Result.List[0]
-			h2.Print(order.AvgPrice.String())
+			h2.Print(qty)
 			if order.Qty == 1 {
 				h2.Print(" contract ")
 				fmt.Print("was")
@@ -288,7 +318,7 @@ func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
 				fmt.Print("were")
 			}
 			fmt.Print(" sold at the price of ")
-			h2.Println(order.AvgPrice.String())
+			h2.Printf("%s USD\n", order.AvgPrice.String())
 
 			//              "Places N contracts ..."
 			p_dimmed.Printf("       %s\n", order.UpdatedTime.Time())

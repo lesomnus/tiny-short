@@ -18,6 +18,7 @@ import (
 
 type Client interface {
 	User() UserApi
+	Account() AccountApi
 	Asset() AssetApi
 	Market() MarketApi
 	Trade() TradeApi
@@ -70,6 +71,10 @@ func (c *client) Clone(secret SecretRecord) Client {
 
 func (c *client) User() UserApi {
 	return &userApi{client: c}
+}
+
+func (c *client) Account() AccountApi {
+	return &accountApi{client: c}
 }
 
 func (c *client) Asset() AssetApi {
@@ -160,11 +165,12 @@ func (c *client) exec(ctx context.Context, method string, url string, data []byt
 	if err != nil {
 		return fmt.Errorf("read body: %w", err)
 	}
-	if err := json.Unmarshal(body, res); err != nil {
-		return fmt.Errorf("unmarshal body: %w", err)
-	}
 
 	l := log.From(ctx)
 	l.Info("<-RES", slog.String("body", string(body)))
+
+	if err := json.Unmarshal(body, res); err != nil {
+		return fmt.Errorf("unmarshal body: %w", err)
+	}
 	return nil
 }

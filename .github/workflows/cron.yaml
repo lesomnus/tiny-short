@@ -59,12 +59,15 @@ jobs:
           coins:
             - SOL
 
-          move:
+          transfer:
             enabled: true
-            to: Bybitplg2HTZRgxP # somnus
+            to:
+              nickname: somnus
+              username: Bybitplg2HTZRgxP
             from:
-              - $MAIN
-              - BybitydINQ0FotFH # hypnos
+              - username: $MAIN
+              - nickname: hypnos
+                username: BybitydINQ0FotFH
 
           log:
             enabled: ${{ inputs.withLog && 'true' || 'false' }}

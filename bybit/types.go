@@ -185,6 +185,10 @@ func (a *Amount) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
+	if s == "" {
+		*a = 0
+		return nil
+	}
 
 	f, err := strconv.ParseFloat(s, 64)
 	if err != nil {
@@ -197,8 +201,26 @@ func (a *Amount) UnmarshalJSON(data []byte) error {
 
 type AccountInfo struct {
 	UserId   UserId
+	Nickname string
 	Username string
 	Secret   SecretRecord
+}
+
+func (i *AccountInfo) DisplayName() string {
+	if i.Nickname != "" {
+		return i.Nickname
+	}
+	return i.Username
+}
+
+func (i *AccountInfo) DisplayNameTrunc(l int) string {
+	name := i.DisplayName()
+	nl := len(name)
+	if nl <= l {
+		return name
+	}
+
+	return fmt.Sprintf("%s..", name[0:l-2])
 }
 
 type ApiPermissions struct {

@@ -18,8 +18,8 @@ type Config struct {
 
 	Secret SecretConfig `yaml:"secret"`
 
-	Coins []bybit.Coin `yaml:"coins"`
-	Move  MoveConfig   `yaml:"move"`
+	Coins    []bybit.Coin   `yaml:"coins"`
+	Transfer TransferConfig `yaml:"transfer"`
 
 	Log   LogConfig   `yaml:"log"`
 	Misc  MiscConfig  `yaml:"misc"`
@@ -37,10 +37,15 @@ type SecretConfig struct {
 	}
 }
 
-type MoveConfig struct {
-	Enabled bool     `yaml:"enabled"`
-	From    []string `yaml:"from"`
-	To      string   `yaml:"to"`
+type AccountDescription struct {
+	Nickname string `yaml:"nickname"`
+	Username string `yaml:"username"`
+}
+
+type TransferConfig struct {
+	Enabled bool                 `yaml:"enabled"`
+	From    []AccountDescription `yaml:"from"`
+	To      AccountDescription   `yaml:"to"`
 
 	from []bybit.AccountInfo
 	to   bybit.AccountInfo
@@ -110,9 +115,8 @@ func ReadConfig(path string) (*Config, error) {
 	if err := yaml.Unmarshal(data, &conf); err != nil {
 		return nil, fmt.Errorf("unmarshal config at %s: %w", conf.path, err)
 	}
-	if !conf.Move.Enabled {
-		conf.Move.From = nil
-		conf.Move.To = ""
+	if !conf.Transfer.Enabled {
+		conf.Transfer.From = nil
 	}
 
 	defaultV(&conf.Log.Format, "text")
@@ -133,11 +137,13 @@ func ReadConfig(path string) (*Config, error) {
 	if !slices.Contains([]string{"auto", "always", "never"}, conf.Misc.UseColorOutput) {
 		conf.Misc.UseColorOutput = "auto"
 	}
-	if conf.Move.Enabled && conf.Move.To == "" {
-		errs = append(errs, fmt.Errorf(".move.to must be set if .move.enabled is true"))
+	if conf.Transfer.Enabled && conf.Transfer.To.Username == "" {
+		errs = append(errs, fmt.Errorf(`".move.to.username" cannot be empty if ".move.enabled" is true`))
 	}
-	if slices.Contains(conf.Move.From, "") {
-		errs = append(errs, fmt.Errorf(".move.from cannot contain empty string"))
+	for _, v := range conf.Transfer.From {
+		if v.Username == "" {
+			errs = append(errs, fmt.Errorf(`".move.from[].username" cannot be empty`))
+		}
 	}
 
 	if len(errs) != 0 {

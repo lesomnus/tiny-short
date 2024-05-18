@@ -14,16 +14,19 @@ coins:
   - BTC
   - SOL
 
-# Transfer all balances to `move.to` fro `move.from` before trading.
-# Trade is made as an account specified at `move.to`.
+# Transfer all balances to `transfer.to` from `transfer.from` before execution.
+# Trade is made as an account specified at `transfer.to`.
 # Use username to specify an account.
 # "$MAIN" is special word that indicates main account.
-move:
+transfer:
   enabled: true
-  to: $MAIN # Username that act trading.
+  to:
+    - username: $MAIN # Username that act trading.
   from:
-    - Bybitr0Ya1ewiThc
-    - BybitH3eselEbiGM
+    - nickname: foo # Display name. It does not need to be same as sub account's nickname in Bybit.
+      username: Bybitr0Ya1ewiThc
+    - nickname: bar
+      username: BybitH3eselEbiGM
 
 log:
   enabled: true
