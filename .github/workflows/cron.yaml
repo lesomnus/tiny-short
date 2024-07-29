@@ -68,6 +68,8 @@ jobs:
               - username: $MAIN
               - nickname: hypnos
                 username: BybitydINQ0FotFH
+              - nickname: gamer
+                username: BybitvPVPcujX3j6
 
           log:
             enabled: ${{ inputs.withLog && 'true' || 'false' }}
