@@ -46,9 +46,6 @@ type TransferConfig struct {
 	Enabled bool                 `yaml:"enabled"`
 	From    []AccountDescription `yaml:"from"`
 	To      AccountDescription   `yaml:"to"`
-
-	from []bybit.AccountInfo
-	to   bybit.AccountInfo
 }
 
 type LogConfig struct {

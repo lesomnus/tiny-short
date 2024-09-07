@@ -271,7 +271,7 @@ func createSubApiKey(ctx context.Context, client bybit.Client, account bybit.Acc
 		Note:      "tiny-short",
 		ReadOnly:  0,
 		Permissions: bybit.ApiPermissions{
-			ContractTrade: []string{"Order"},
+			ContractTrade: []string{"Order", "Position"},
 		},
 	}); err != nil {
 		return bybit.SecretRecord{}, fmt.Errorf("request for create sub APi key: %w", err)
