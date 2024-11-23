@@ -70,6 +70,9 @@ jobs:
                 username: BybitydINQ0FotFH
               - nickname: gamer
                 username: BybitvPVPcujX3j6
+              - nickname: gibbs
+                username: BybitL1yzEbpXye2
+                
 
           log:
             enabled: ${{ inputs.withLog && 'true' || 'false' }}
