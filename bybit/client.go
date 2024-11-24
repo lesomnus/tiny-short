@@ -160,6 +160,9 @@ func (c *client) exec(ctx context.Context, method string, url string, data []byt
 	if err != nil {
 		return fmt.Errorf("roundtrip: %w", err)
 	}
+	if res_.StatusCode != 200 {
+		return fmt.Errorf("status code %d", res_.StatusCode)
+	}
 
 	body, err := io.ReadAll(res_.Body)
 	if err != nil {

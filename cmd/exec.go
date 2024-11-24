@@ -103,7 +103,7 @@ func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
 	}
 	if res, err := e.Client.Asset().QueryAccountCoinBalance(ctx, bybit.AssetQueryAccountCoinBalanceReq{
 		MemberId:    dst.UserId.String(),
-		AccountType: bybit.AccountTypeContract,
+		AccountType: bybit.AccountTypeUnified,
 		Coin:        coin,
 	}); err != nil {
 		return fmt.Errorf("request for query account coin balance: %w", err)
@@ -127,8 +127,8 @@ func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
 		if res, err := e.Client.Asset().QueryAccountCoinBalance(ctx, bybit.AssetQueryAccountCoinBalanceReq{
 			MemberId:      src.UserId.String(),
 			ToMemberId:    dst.UserId.String(),
-			AccountType:   bybit.AccountTypeContract,
-			ToAccountType: bybit.AccountTypeContract,
+			AccountType:   bybit.AccountTypeUnified,
+			ToAccountType: bybit.AccountTypeUnified,
 			Coin:          coin,
 		}); err != nil {
 			return fmt.Errorf("request for query account coin balance: %w", err)
@@ -154,8 +154,8 @@ func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
 			Amount:          balance.String(),
 			FromMember:      src.UserId,
 			ToMember:        dst.UserId,
-			FromAccountType: bybit.AccountTypeContract,
-			ToAccountType:   bybit.AccountTypeContract,
+			FromAccountType: bybit.AccountTypeUnified,
+			ToAccountType:   bybit.AccountTypeUnified,
 		}); err != nil {
 			p_fail.Print("✗ REQ FAILED ")
 			p_fail_why.Println(err.Error())
@@ -197,7 +197,7 @@ func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
 	var balance bybit.Amount
 	p_dimmed.Println("              ----------")
 	if res, err := trading_client.Account().WalletBalance(ctx, bybit.AccountWalletBalanceReq{
-		AccountType: bybit.AccountTypeContract,
+		AccountType: bybit.AccountTypeUnified,
 		Coin:        coin,
 	}); err != nil {
 		return fmt.Errorf("request for wallet balance: %w", err)

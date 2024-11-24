@@ -106,9 +106,8 @@ const (
 type AccountType string
 
 const (
-	AccountTypeFund     = AccountType("FUND")
-	AccountTypeUnified  = AccountType("UNIFIED")
-	AccountTypeContract = AccountType("CONTRACT")
+	AccountTypeFund    = AccountType("FUND")
+	AccountTypeUnified = AccountType("UNIFIED")
 )
 
 type ContractType string

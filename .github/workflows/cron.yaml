@@ -66,8 +66,6 @@ jobs:
               username: Bybitplg2HTZRgxP
             from:
               - username: $MAIN
-              - nickname: hypnos
-                username: BybitydINQ0FotFH
               - nickname: gamer
                 username: BybitvPVPcujX3j6
               - nickname: gibbs
