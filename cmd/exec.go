@@ -196,28 +196,18 @@ func (e *Exec) Do(ctx context.Context, coin bybit.Coin) error {
 
 	var balance bybit.Amount
 	p_dimmed.Println("              ----------")
-	if res, err := trading_client.Account().WalletBalance(ctx, bybit.AccountWalletBalanceReq{
-		AccountType: bybit.AccountTypeUnified,
-		Coin:        coin,
+	if res, err := trading_client.Account().TransferableAmount(ctx, bybit.AccountTransferableAmountReq{
+		CoinName: coin,
 	}); err != nil {
 		return fmt.Errorf("request for wallet balance: %w", err)
 	} else if !res.Ok() {
 		return fmt.Errorf("wallet balance: %w", res.Err())
-	} else if len(res.Result.List) == 0 {
-		return fmt.Errorf("wallet balance list empty")
-	} else if len(res.Result.List[0].Coin) == 0 {
-		return fmt.Errorf("wallet balance coin list")
 	} else {
-		c := res.Result.List[0].Coin[0]
-		balance = c.AvailableToWithdraw
+		balance = res.Result.AvailableWithdrawal
 
 		p_dimmed.Print("              ")
 		p_coin.Printf("%8f", balance)
 		p_dimmed.Printf(" ≈ %8f USD\n", balance*mark_price)
-
-		p_dimmed.Print("           of ")
-		fmt.Printf("%8f", c.Equity)
-		p_dimmed.Printf(" ≈ %8f USD\n", c.Equity*mark_price)
 	}
 
 	fmt.Printf("\nShort by market order\n")

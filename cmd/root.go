@@ -86,7 +86,8 @@ func Root(ctx context.Context, conf *Config) error {
 		if res.Result.ReadOnly == 0 {
 			p_good.Println("✓ OK")
 		} else {
-			p_fail.Print("✗ Read Only")
+			isGood = false
+			p_fail.Print("✗ Read Only ")
 			p_fail_why.Println("need write permission")
 		}
 
@@ -132,7 +133,11 @@ func Root(ctx context.Context, conf *Config) error {
 		}
 
 		if !isGood {
-			return errors.New("check list not satisfied")
+			if conf.Debug.IgnoreChecklist {
+				p_warn.Println("Fail of checklist is ignored")
+			} else {
+				return errors.New("check list not satisfied")
+			}
 		}
 	}
 

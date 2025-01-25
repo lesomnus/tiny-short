@@ -60,6 +60,7 @@ type MiscConfig struct {
 
 type DebugConfig struct {
 	Enabled         bool `yaml:"enabled"`
+	IgnoreChecklist bool `yaml:"ignore_checklist"`
 	SkipTransaction bool `yaml:"skip_transaction"`
 	SkipTransfer    bool `yaml:"skip_transfer"`
 }

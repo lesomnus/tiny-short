@@ -21,7 +21,7 @@ coins:
 transfer:
   enabled: true
   to:
-    - username: $MAIN # Username that act trading.
+    username: $MAIN # Username that act trading.
   from:
     - nickname: foo # Display name. It does not need to be same as sub account's nickname in Bybit.
       username: Bybitr0Ya1ewiThc
